@@ -1,0 +1,75 @@
+
+import random
+
+# Possible energy states
+states = ["critical", "low", "healthy"]
+
+# Actions available to the organism
+actions = ["search", "rest"]
+
+# Initially, the organism has no learned preferences
+Q = {(state, action): 0.0
+     for state in states for action in actions}
+
+learning_rate = 0.1
+discount = 0.9
+exploration = 0.2
+
+def get_state(energy):
+    if energy < 20:
+        return "critical"
+    if energy < 60:
+        return "low"
+    return "healthy"
+
+# Run 5000 simulated episodes
+for episode in range(5000):
+    energy = 50
+
+    for step in range(100):
+        state = get_state(energy)
+
+        # Explore or choose the best learned action
+        if random.random() < exploration:
+            action = random.choice(actions)
+        else:
+            action = max(
+                actions, key=lambda a: Q[(state, a)]
+            )
+
+        if action == "search":
+            energy -= 5
+            if random.random() < 0.6:
+                energy += 20
+        else:
+            energy -= 2
+
+        # Energy is capped at 100
+        energy = min(energy, 100)
+
+        # Reward energy maintenance
+        reward = 1 if energy > 20 else -2
+
+        if energy <= 0:
+            reward = -10
+
+        next_state = get_state(energy)
+
+        # Update what the organism has learned
+        old_q = Q[(state, action)]
+        best_future = max(
+            Q[(next_state, a)] for a in actions
+        )
+
+        Q[(state, action)] = old_q + learning_rate * (
+            reward + discount * best_future - old_q
+        )
+
+        if energy <= 0:
+            break
+
+print("Learned action values:")
+for state in states:
+    print(state, {
+        a: round(Q[(state, a)], 2) for a in actions
+    })

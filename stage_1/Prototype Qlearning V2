@@ -1,0 +1,151 @@
+
+import random
+import statistics
+
+# PROJECT GENESIS - STAGE 1
+# Experiment: Does learning improve survival?
+
+random.seed(42)
+
+STATES = ["critical", "low", "healthy"]
+ACTIONS = ["search", "rest"]
+
+Q = {
+    (state, action): 0.0
+    for state in STATES
+    for action in ACTIONS
+}
+
+LEARNING_RATE = 0.1
+DISCOUNT = 0.9
+EXPLORATION = 0.2
+
+
+def get_state(energy):
+    if energy < 20:
+        return "critical"
+    elif energy < 60:
+        return "low"
+    return "healthy"
+
+
+def perform_action(energy, action):
+    if action == "search":
+        energy -= 5
+
+        if random.random() < 0.6:
+            energy += 20
+
+    elif action == "rest":
+        energy -= 2
+
+    return min(energy, 100)
+
+
+def choose_action(state, training=True):
+    if training and random.random() < EXPLORATION:
+        return random.choice(ACTIONS)
+
+    return max(
+        ACTIONS,
+        key=lambda action: Q[(state, action)]
+    )
+
+
+# STEP 1: TRAIN THE ORGANISM
+
+for episode in range(5000):
+    energy = 50
+
+    for step in range(100):
+        state = get_state(energy)
+        action = choose_action(state)
+
+        energy = perform_action(energy, action)
+
+        if energy <= 0:
+            reward = -10
+            target = reward
+        else:
+            reward = 1 if energy > 20 else -2
+            next_state = get_state(energy)
+
+            best_future = max(
+                Q[(next_state, a)] for a in ACTIONS
+            )
+
+            target = reward + DISCOUNT * best_future
+
+        old_q = Q[(state, action)]
+
+        Q[(state, action)] = old_q + LEARNING_RATE * (
+            target - old_q
+        )
+
+        if energy <= 0:
+            break
+
+
+# STEP 2: DISPLAY WHAT IT LEARNED
+
+print("LEARNED ACTION VALUES")
+
+for state in STATES:
+    print(state, {
+        action: round(Q[(state, action)], 2)
+        for action in ACTIONS
+    })
+
+
+# STEP 3: TEST SURVIVAL
+
+def test_organism(trained=True, trials=1000):
+    lifespans = []
+    survived = 0
+
+    for trial in range(trials):
+        energy = 50
+
+        for step in range(200):
+            state = get_state(energy)
+
+            if trained:
+                action = choose_action(
+                    state, training=False
+                )
+            else:
+                action = random.choice(ACTIONS)
+
+            energy = perform_action(energy, action)
+
+            if energy <= 0:
+                break
+
+        lifespan = step + 1
+        lifespans.append(lifespan)
+
+        if energy > 0:
+            survived += 1
+
+    return {
+        "average_lifespan": statistics.mean(lifespans),
+        "survival_rate": survived / trials * 100
+    }
+
+
+trained = test_organism(trained=True)
+random_agent = test_organism(trained=False)
+
+
+# STEP 4: COMPARE RESULTS
+
+print("\nSURVIVAL EXPERIMENT")
+print("-" * 35)
+
+print("Trained organism:")
+print(f"Average lifespan: {trained['average_lifespan']:.2f}")
+print(f"Survival rate: {trained['survival_rate']:.1f}%")
+
+print("\nRandom organism:")
+print(f"Average lifespan: {random_agent['average_lifespan']:.2f}")
+print(f"Survival rate: {random_agent['survival_rate']:.1f}%")
